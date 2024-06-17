@@ -23,14 +23,14 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: https://whatsappcontainer.azurecr.io/
-        username: ${{ secrets.AzureAppService_ContainerUsername_6c4cd801569942d48e3338624f86e700 }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_d3ed38ab00274f23bdafb526f91498ce }}
+        username: ${{ secrets.AzureAppService_ContainerUsername_47ec08cae99149328b5e164101919412 }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_ffc15b2d4bdd4acdbee1232979a6d9b3 }}
 
     - name: Build and push container image to registry
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: whatsappcontainer.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_6c4cd801569942d48e3338624f86e700 }}/whatsapp-api-nodejs-main:${{ github.sha }}
+        tags: whatsappcontainer.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_47ec08cae99149328b5e164101919412 }}/whatsapp-api-nodejs-main:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -47,5 +47,5 @@ jobs:
       with:
         app-name: 'whatsapp-bailey'
         slot-name: 'routes'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_d9d3fd1713af41b1b21a6385ae2c220f }}
-        images: 'whatsappcontainer.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_6c4cd801569942d48e3338624f86e700 }}/whatsapp-api-nodejs-main:${{ github.sha }}'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_934d29fd0c17447bbbfe39b9d3a0ad58 }}
+        images: 'whatsappcontainer.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_47ec08cae99149328b5e164101919412 }}/whatsapp-api-nodejs-main:${{ github.sha }}'
