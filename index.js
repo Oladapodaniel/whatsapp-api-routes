@@ -84,7 +84,7 @@ const sendVideoMessage = async (req, resp, formData) => {
 
 
 app.get('/', (req, res) => {
-    res.send('<h1>Node application</h1>');
+    res.send('<h1>Node application for whatsapp api routes</h1>');
 });
 
 console.log(process.env.TOKEN, 'token')
