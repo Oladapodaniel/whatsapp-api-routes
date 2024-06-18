@@ -13,7 +13,8 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
+// const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
+const baseUrl = process.env.BASE_URL
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
