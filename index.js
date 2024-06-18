@@ -13,7 +13,7 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-
+const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -35,7 +35,7 @@ const sendMessage = async (req, resp, payload) => {
     console.log(payload, 'reaching here')
     console.log(req.query.key, 'reaching 22')
     try {
-        const res = await fetch(`${process.env.BASE_URL}/message/text?key=${req.query.key}`, {
+        const res = await fetch(`${baseUrl}/message/text?key=${req.query.key}`, {
             method: 'POST', // Change the method to POST
             headers: {
                 'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ const sendMessage = async (req, resp, payload) => {
 
 const sendImageMessage = async (req, resp, formData) => {
     try {
-        const res = await fetch(`${process.env.BASE_URL}/message/image?key=${req.query.key}`, {
+        const res = await fetch(`${baseUrl}/message/image?key=${req.query.key}`, {
             method: 'POST',
             body: formData
         });
@@ -68,7 +68,7 @@ const sendImageMessage = async (req, resp, formData) => {
 
 const sendVideoMessage = async (req, resp, formData) => {
     try {
-        const res = await fetch(`${process.env.BASE_URL}/message/video?key=${req.query.key}`, {
+        const res = await fetch(`${baseUrl}/message/video?key=${req.query.key}`, {
             method: 'POST',
             body: formData
         });
@@ -88,10 +88,21 @@ app.get('/', (req, res) => {
 });
 
 console.log(process.env.TOKEN, 'token')
-app.get('/initializeWhatsapp', async (req, resp) => {
-    console.log(`${process.env.BASE_URL}/instance/init?key=${req.query.key}&token=${process.env.TOKEN}`)
+app.get('/instance/restore', async (req, resp) => {
+    console.log(`${baseUrl}/instance/restore`)
     try {
-        const res = await fetch(`${process.env.BASE_URL}/instance/init?key=${req.query.key}&token=${process.env.TOKEN}`);
+        const res = await fetch(`${baseUrl}/instance/restore`);
+        const JSONResponse = await res.json();
+        resp.send(JSONResponse);
+    } catch (err) {
+        console.log(err.message);
+        resp.status(500).send('Failed to fetch data');
+    }
+});
+
+app.get('/initializeWhatsapp', async (req, resp) => {
+    try {
+        const res = await fetch(`${baseUrl}/instance/init?key=${req.query.key}&token=${process.env.TOKEN}`);
         const JSONResponse = await res.json();
         resp.send(JSONResponse);
     } catch (err) {
@@ -102,7 +113,7 @@ app.get('/initializeWhatsapp', async (req, resp) => {
 
 app.get('/scanQRCode', async (req, resp) => {
     try {
-        const res = await fetch(`${process.env.BASE_URL}/instance/qrbase64?key=${req.query.key}`);
+        const res = await fetch(`${baseUrl}/instance/qrbase64?key=${req.query.key}`);
         const JSONResponse = await res.json();
         resp.send(JSONResponse);
     } catch (err) {
@@ -113,7 +124,7 @@ app.get('/scanQRCode', async (req, resp) => {
 
 app.get('/single/instanceInfo', async (req, resp) => {
     try {
-        const res = await fetch(`${process.env.BASE_URL}/instance/info?key=${req.query.key}`);
+        const res = await fetch(`${baseUrl}/instance/info?key=${req.query.key}`);
         const JSONResponse = await res.json();
         resp.send(JSONResponse);
     } catch (err) {
@@ -124,7 +135,7 @@ app.get('/single/instanceInfo', async (req, resp) => {
 
 app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
     try {
-        const res = await fetch(`${process.env.BASE_URL}/group/getallgroups?key=${req.query.key}`);
+        const res = await fetch(`${baseUrl}/group/getallgroups?key=${req.query.key}`);
         const JSONResponse = await res.json();
         resp.send(JSONResponse);
     } catch (err) {
