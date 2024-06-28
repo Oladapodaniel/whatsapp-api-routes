@@ -13,8 +13,8 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-// const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
-const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
+const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
+// const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
