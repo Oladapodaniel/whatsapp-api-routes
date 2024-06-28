@@ -13,8 +13,8 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
-// const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
+// const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
+const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -68,7 +68,8 @@ const sendMessage = async (req, resp, payload) => {
             body: JSON.stringify(payload),
         });
         const JSONResponse = await res.json();
-        console.log(req.query.key)
+        resp.send(JSONResponse);
+        await sendDeliveryReport(JSONResponse);
         console.log(JSONResponse, 'senttt')
     } catch (err) {
         console.log(err.message);
@@ -127,6 +128,31 @@ const checkIfInstanceIsActive = async (req) => {
     } catch (error) {
         console.log(error, 'error here')
     }
+}
+
+const sendDeliveryReport = async (payload) => {
+    // try {
+    fetch(`https://churchplusv3coreapi.azurewebsites.net/WhatsAppDeliveryReport?data=${payload.error}`, {
+        method: 'POST',
+        // body: payload,
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+        .then(response => response.text())
+        .then(data => {
+            console.log('Response:', data);
+            // Process the response data
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Handle any errors
+        });
+    //     // const JSONResponse = await res.json();
+    //     console.log(res, 'report')
+    // } catch (error) {
+    //     console.log(error, 'error')
+    // }
 }
 
 
@@ -314,7 +340,7 @@ app.delete('/instance/logout', async (req, resp) => {
 //                             sendMessage(req, resp, payload)
 //                         });
 //                     } else {
-                
+
 //                         resp.status(500).send('Failed to fetch data');
 //                     }
 //                 })
@@ -335,7 +361,7 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         await restoreWhatsappSession(req, resp);
 
         console.log('restored');
-        
+
         const response = await checkIfInstanceIsActive(req);
 
         console.log(response, 'here222');
