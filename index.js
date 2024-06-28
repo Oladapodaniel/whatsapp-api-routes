@@ -14,7 +14,7 @@ const multer = require('multer');
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 // const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
-const baseUrl = process.env.BASE_URL
+const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -32,6 +32,30 @@ app.use(bodyParser.json())
 
 dotenv.config();
 
+const restoreWhatsappSession = async (req, resp) => {
+    console.log(`${baseUrl}/instance/restore`)
+    try {
+        const res = await fetch(`${baseUrl}/instance/restore`);
+        const JSONResponse = await res.json();
+        resp.send(JSONResponse);
+        // return JSONResponse
+    } catch (err) {
+        console.log(err.message);
+        resp.status(500).send('Failed to fetch data');
+    }
+}
+
+const instanceInfo = async (req) => {
+    try {
+        const res = await fetch(`${baseUrl}/instance/info?key=${req.query.key}`);
+        const JSONResponse = await res.json();
+        return JSONResponse
+    } catch (err) {
+        console.log(err.message);
+        return err
+    }
+}
+
 const sendMessage = async (req, resp, payload) => {
     console.log(payload, 'reaching here')
     console.log(req.query.key, 'reaching 22')
@@ -40,12 +64,12 @@ const sendMessage = async (req, resp, payload) => {
             method: 'POST', // Change the method to POST
             headers: {
                 'Content-Type': 'application/json',
-                // Add any other headers if required by your server
             },
             body: JSON.stringify(payload),
         });
         const JSONResponse = await res.json();
-        console.log(JSONResponse, 'sent')
+        console.log(req.query.key)
+        console.log(JSONResponse, 'senttt')
     } catch (err) {
         console.log(err.message);
         resp.status(500).send('Failed to fetch data');
@@ -82,6 +106,29 @@ const sendVideoMessage = async (req, resp, formData) => {
     }
 };
 
+let instanceCallSum = 0
+const checkIfInstanceIsActive = async (req) => {
+    // Check if instance is active before sending message
+    try {
+        let response = await instanceInfo(req);
+        console.log(response, 'response here')
+        if (response.error) {
+            instanceCallSum++
+            console.log(instanceCallSum)
+            if (instanceCallSum === 30) {
+                console.log('stop!')
+                return;
+            } else {
+                return checkIfInstanceIsActive(req)
+            }
+        } else {
+            return response;
+        }
+    } catch (error) {
+        console.log(error, 'error here')
+    }
+}
+
 
 
 app.get('/', (req, res) => {
@@ -90,15 +137,7 @@ app.get('/', (req, res) => {
 
 console.log(process.env.TOKEN, 'token')
 app.get('/instance/restore', async (req, resp) => {
-    console.log(`${baseUrl}/instance/restore`)
-    try {
-        const res = await fetch(`${baseUrl}/instance/restore`);
-        const JSONResponse = await res.json();
-        resp.send(JSONResponse);
-    } catch (err) {
-        console.log(err.message);
-        resp.status(500).send('Failed to fetch data');
-    }
+    await restoreWhatsappSession(req, resp)
 });
 
 app.get('/initializeWhatsapp', async (req, resp) => {
@@ -124,14 +163,14 @@ app.get('/scanQRCode', async (req, resp) => {
 });
 
 app.get('/single/instanceInfo', async (req, resp) => {
-    try {
-        const res = await fetch(`${baseUrl}/instance/info?key=${req.query.key}`);
-        const JSONResponse = await res.json();
-        resp.send(JSONResponse);
-    } catch (err) {
-        console.log(err.message);
-        resp.status(500).send('Failed to fetch data');
-    }
+    instanceInfo(req)
+        .then(response => {
+            resp.send(response);
+        })
+        .catch(error => {
+            console.error(error)
+            resp.status(500).send('Failed to fetch data');
+        })
 });
 
 app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
@@ -232,6 +271,97 @@ app.post('/send/video', upload.single('file'), async (req, resp) => {
     }
 });
 
+app.delete('/instance/logout', async (req, resp) => {
+    try {
+        const res = await fetch(`${baseUrl}/instance/logout?key=${req.query.key}`, {
+            method: 'DELETE'
+        });
+        console.log(res, 'resss')
+        if (!res.ok) {
+            resp.send({ message: `HTTP error! Status: ${res.status}` });
+        }
+        console.log('worked')
+
+        const JSONResponse = await res.json();
+        resp.send(JSONResponse);
+    } catch (error) {
+        console.error(error)
+    }
+})
+
+// app.post('/api/whatsapp/schedule', async (req, resp) => {
+//     console.log(req.body);
+//     req.query.key = req.body.sessionId;
+//     console.log(req.query.key, 'query set')
+
+//     await restoreWhatsappSession(req, resp)
+//         .then(() => {
+//             console.log('restored')
+//             checkIfInstanceIsActive(req)
+//                 .then(response => {
+//                     console.log(response, 'here222')
+//                     if (response && !response.error) {
+//                         req?.body?.chatRecipients?.forEach(item => {
+//                             let message = req.body.message;
+//                             const chatId = item.phoneNumber.substring(0, 1) == '+' ? item.phoneNumber.substring(1) : item.phoneNumber;
+//                             if (req.body?.message?.includes("#name#")) {
+//                                 message = message.replaceAll("#name#", item.name ? item.name : "")
+//                             }
+//                             const payload = {
+//                                 id: chatId,
+//                                 message
+//                             }
+//                             sendMessage(req, resp, payload)
+//                         });
+//                     } else {
+                
+//                         resp.status(500).send('Failed to fetch data');
+//                     }
+//                 })
+//                 .catch(error => {
+//                     console.error(error)
+//                 })
+//         })
+//         .catch((err) => console.error(err))
+// })
+
+
+app.post('/api/whatsapp/schedule', async (req, resp) => {
+    try {
+        console.log(req.body);
+        req.query.key = req.body.sessionId;
+        console.log(req.query.key, 'query set')
+
+        await restoreWhatsappSession(req, resp);
+
+        console.log('restored');
+        
+        const response = await checkIfInstanceIsActive(req);
+
+        console.log(response, 'here222');
+
+        if (response && !response.error) {
+            for (const item of req.body.chatRecipients) {
+                let message = req.body.message;
+                const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
+                if (req.body.message.includes("#name#")) {
+                    message = message.replaceAll("#name#", item.name ? item.name : "");
+                }
+                const payload = {
+                    id: chatId,
+                    message
+                };
+                await sendMessage(req, resp, payload);
+            }
+        } else {
+            console.log('Failed to send please try again')
+            // resp.status(500).send('Failed to fetch data');
+        }
+    } catch (error) {
+        console.error(error);
+        resp.status(500).send('Internal Server Error');
+    }
+});
 
 
 app.listen(port, () => {
