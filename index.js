@@ -13,8 +13,7 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-// const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
-const baseUrl = 'https://whatsapp-bailey.azurewebsites.net'
+const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -31,6 +30,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 
 dotenv.config();
+console.log(process.env.NODE_ENV)
 
 const restoreWhatsappSession = async (req, resp) => {
     console.log(`${baseUrl}/instance/restore`)
@@ -56,25 +56,39 @@ const instanceInfo = async (req) => {
     }
 }
 
-const sendMessage = async (req, resp, payload) => {
+const sendMessage = async (req, payload) => {
+    // console.log(payload, 'reaching here')
+    // console.log(req.query.key, 'reaching 22')
+    // try {
+    //     const res = await fetch(`${baseUrl}/message/text?key=${req.query.key}`, {
+    //         method: 'POST', // Change the method to POST
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //         },
+    //         body: JSON.stringify(payload),
+    //     });
+    //     const JSONResponse = await res.json();
+    //     resp.send(JSONResponse);
+    //     await sendDeliveryReport(JSONResponse);
+    //     console.log(JSONResponse, 'senttt')
+    // } catch (err) {
+    //     console.log(err.message);
+    //     resp.status(500).send('Failed to fetch data');
+    // }
     console.log(payload, 'reaching here')
     console.log(req.query.key, 'reaching 22')
-    try {
-        const res = await fetch(`${baseUrl}/message/text?key=${req.query.key}`, {
-            method: 'POST', // Change the method to POST
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-        const JSONResponse = await res.json();
-        resp.send(JSONResponse);
-        await sendDeliveryReport(JSONResponse);
-        console.log(JSONResponse, 'senttt')
-    } catch (err) {
-        console.log(err.message);
-        resp.status(500).send('Failed to fetch data');
-    }
+    const res = await fetch(`${baseUrl}/message/text?key=${req.query.key}`, {
+        method: 'POST', // Change the method to POST
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+    const JSONResponse = await res.json();
+    await sendDeliveryReport(JSONResponse);
+
+    console.log(JSONResponse, 'senttt')
+    return JSONResponse;
 }
 
 const sendImageMessage = async (req, resp, formData) => {
@@ -132,27 +146,22 @@ const checkIfInstanceIsActive = async (req) => {
 
 const sendDeliveryReport = async (payload) => {
     // try {
-    fetch(`https://churchplusv3coreapi.azurewebsites.net/WhatsAppDeliveryReport?data=${payload.error}`, {
+    fetch(`https://churchplusv3coreapi.azurewebsites.net/WhatsAppDeliveryReport`, {
         method: 'POST',
-        // body: payload,
+        body: payload,
         headers: {
             'Content-Type': 'application/json',
         }
     })
         .then(response => response.text())
         .then(data => {
-            console.log('Response:', data);
+            console.log('Report sent', 'Response:', data);
             // Process the response data
         })
         .catch(error => {
             console.error('Error:', error);
             // Handle any errors
         });
-    //     // const JSONResponse = await res.json();
-    //     console.log(res, 'report')
-    // } catch (error) {
-    //     console.log(error, 'error')
-    // }
 }
 
 
@@ -212,10 +221,11 @@ app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
 
 app.post('/send/text', async (req, resp) => {
     console.log(req.body);
-    req?.body?.id?.forEach(item => {
+    for (let i = 0; i < req?.body?.id?.length; i++) {
+        let item = req?.body?.id[i]
         let message = req.body.message;
         const chatId = item.phoneNumber.substring(0, 1) == '+' ? item.phoneNumber.substring(1) : item.phoneNumber;
-        if (req.body?.message?.includes("#name#")) {
+        if (message?.includes("#name#")) {
             message = message.replaceAll("#name#", item.name ? item.name : "")
         }
         const payload = {
@@ -223,9 +233,16 @@ app.post('/send/text', async (req, resp) => {
             message
         }
         console.log(message, chatId, 'value')
+        await sendMessage(req, payload)
 
-        sendMessage(req, resp, payload)
-    });
+        // Throttle request after every fifth request
+        // Check if the current index is a multiple of 5 (except for the last item)
+        if ((i + 1) % 5 === 0 && i < req?.body?.id?.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 10000));
+        }
+    }
+    // Send the final response after all messages have been sent
+    resp.send({ message: 'All messages sent' });
 });
 
 app.post('/send/image', upload.single('file'), async (req, resp) => {
@@ -337,7 +354,7 @@ app.delete('/instance/logout', async (req, resp) => {
 //                                 id: chatId,
 //                                 message
 //                             }
-//                             sendMessage(req, resp, payload)
+//                             sendMessage(req, payload)
 //                         });
 //                     } else {
 
@@ -377,7 +394,7 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
                     id: chatId,
                     message
                 };
-                await sendMessage(req, resp, payload);
+                await sendMessage(req, payload);
             }
         } else {
             console.log('Failed to send please try again')
@@ -388,7 +405,6 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         resp.status(500).send('Internal Server Error');
     }
 });
-
 
 app.listen(port, () => {
     console.log('running at', port)
