@@ -80,7 +80,7 @@ const sendMessage = async (req, payload) => {
     return JSONResponse;
 }
 
-const sendImageMessage = async (req, resp, formData) => {
+const sendImageMessage = async (req, formData) => {
     try {
         const res = await fetch(`${baseUrl}/message/image?key=${req.query.key}`, {
             method: 'POST',
@@ -94,7 +94,7 @@ const sendImageMessage = async (req, resp, formData) => {
     }
 };
 
-const sendVideoMessage = async (req, resp, formData) => {
+const sendVideoMessage = async (req, formData) => {
     try {
         const res = await fetch(`${baseUrl}/message/video?key=${req.query.key}`, {
             method: 'POST',
@@ -305,7 +305,7 @@ app.post('/send/image', async (req, resp) => {
             formData.append('file', fileBlob, 'filename')
 
             console.log('reaching')
-            await sendImageMessage(req, resp, formData);
+            await sendImageMessage(req, formData);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
@@ -352,7 +352,7 @@ app.post('/send/video', async (req, resp) => {
             formData.append('file', fileBlob, 'filename')
 
             console.log('reaching')
-            await sendVideoMessage(req, resp, formData);
+            await sendVideoMessage(req, formData);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
