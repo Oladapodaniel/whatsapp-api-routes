@@ -36,17 +36,17 @@ console.log(process.env.NODE_ENV)
 const restoreWhatsappSession = async (req, resp) => {
     console.log(`${baseUrl}/instance/restore`)
     try {
-        const res = await fetch(`${baseUrl}/instance/restore`);
-        const JSONResponse = await res.json();
-        resp.send(JSONResponse);
-        // return JSONResponse
+        await fetch(`${baseUrl}/instance/restore`);
+        // const JSONResponse = await res.json();
+        return JSONResponse
     } catch (err) {
         console.log(err.message);
-        resp.status(500).send('Failed to fetch data');
+        // resp.status(500).send('Failed to fetch data');
     }
 }
 
 const instanceInfo = async (req) => {
+    console.log(req.query.key, 'instance key')
     try {
         const res = await fetch(`${baseUrl}/instance/info?key=${req.query.key}`);
         const JSONResponse = await res.json();
@@ -108,28 +108,59 @@ const sendVideoMessage = async (req, formData) => {
     }
 };
 
-let instanceCallSum = 0
 const checkIfInstanceIsActive = async (req) => {
-    // Check if instance is active before sending message
-    try {
-        let response = await instanceInfo(req);
-        console.log(response, 'response here')
-        if (response.error) {
-            instanceCallSum++
-            console.log(instanceCallSum)
-            if (instanceCallSum === 30) {
-                console.log('stop!')
-                return;
-            } else {
-                return checkIfInstanceIsActive(req)
-            }
-        } else {
-            return response;
-        }
-    } catch (error) {
-        console.log(error, 'error here')
-    }
-}
+    return new Promise((resolve, reject) => {
+        // Check if instance is active before sending message
+        instanceInfo(req)
+            .then((response) => {
+                console.log(response, 'response here');
+                if (response.error) {
+                    setTimeout(() => {
+                        console.log("Instance not active yet, check will commence again in 10 secs");
+                        checkIfInstanceIsActive(req).then(resolve).catch(reject);
+                    }, 10000);
+                } else {
+                    if (response && response.instance_data && response.instance_data.user && Object.keys(response.instance_data.user).length > 0) {
+                        resolve(response);
+                    } else {
+                        setTimeout(() => {
+                            console.log("Instance not active yet, check will commence again in 10 secs");
+                            checkIfInstanceIsActive(req).then(resolve).catch(reject);
+                        }, 10000);
+                    }
+                }
+            })
+            .catch((error) => {
+                console.log(error, 'error here');
+                reject(error);
+            });
+    });
+};
+
+// const checkIfInstanceIsActive = async (req) => {
+//     // Check if instance is active before sending message
+//     try {
+//         let response = await instanceInfo(req);
+//         console.log(response, 'response here')
+//         if (response.error) {
+//             setTimeout(() => {
+//                 console.log("Instance not active yet, check will commence again in 10 secs")
+//                 checkIfInstanceIsActive(req);
+//             }, 10000);
+//         } else {
+//             if (response && response.instance_data && response.instance_data.user && Object.keys(response.instance_data.user).length > 0) {
+//                 return response;
+//             } else {
+//                 setTimeout(() => {
+//                     console.log("Instance not active yet, check will commence again in 10 secs")
+//                     checkIfInstanceIsActive(req);
+//                 }, 10000);
+//             }
+//         }
+//     } catch (error) {
+//         console.log(error, 'error here')
+//     }
+// }
 
 const sendDeliveryReport = async (payload) => {
     // try {
@@ -201,7 +232,8 @@ app.get('/', (req, res) => {
 
 console.log(process.env.TOKEN, 'token')
 app.get('/instance/restore', async (req, resp) => {
-    await restoreWhatsappSession(req, resp)
+    const JSONResponse = await restoreWhatsappSession(req, resp)
+    resp.send(JSONResponse);
 });
 
 app.get('/initializeWhatsapp', async (req, resp) => {
@@ -229,6 +261,7 @@ app.get('/scanQRCode', async (req, resp) => {
 app.get('/single/instanceInfo', async (req, resp) => {
     instanceInfo(req)
         .then(response => {
+            console.log(response, 'instanceInfo')
             resp.send(response);
         })
         .catch(error => {
@@ -248,8 +281,8 @@ app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
     }
 });
 
-app.post('/send/text', async (req, resp) => {
-    console.log(req.body);
+const sendText = async (req) => {
+    console.log('reachinggg')
     for (let i = 0; i < req?.body?.id?.length; i++) {
         let item = req?.body?.id[i]
         let message = req.body.message;
@@ -262,7 +295,6 @@ app.post('/send/text', async (req, resp) => {
             message,
             messageGroupID: req.body.messageGroupID
         }
-        console.log(message, chatId, 'value')
         await sendMessage(req, payload)
 
         // Throttle request after every fifth request
@@ -271,12 +303,9 @@ app.post('/send/text', async (req, resp) => {
             await new Promise((resolve) => setTimeout(resolve, 10000));
         }
     }
-    // sentBroadCastList()
-    // Send the final response after all messages have been sent
-    resp.send({ message: 'All messages sent' });
-});
+}
 
-app.post('/send/image', async (req, resp) => {
+const sendImage = async (req, resp) => {
     try {
         // Extract data from req.body and req.file
         const { id, message, fileUrl, messageGroupID } = req.body;
@@ -321,9 +350,9 @@ app.post('/send/image', async (req, resp) => {
         console.error(err, 'error here');
         resp.status(500).send('Internal server error');
     }
-});
+}
 
-app.post('/send/video', async (req, resp) => {
+const sendVideo = async (req, resp) => {
     try {
         // Extract data from req.body and req.file
         const { id, message, fileUrl, messageGroupID } = req.body;
@@ -368,6 +397,21 @@ app.post('/send/video', async (req, resp) => {
         console.error(err, 'error here');
         resp.status(500).send('Internal server error');
     }
+}
+
+app.post('/send/text', async (req, resp) => {
+    await sendText(req);
+    // sentBroadCastList()
+    // Send the final response after all messages have been sent
+    resp.send({ message: 'All messages sent' });
+});
+
+app.post('/send/image', async (req, resp) => {
+    await sendImage(req, resp)
+});
+
+app.post('/send/video', async (req, resp) => {
+    await sendVideo(req, resp)
 });
 
 
@@ -389,73 +433,35 @@ app.delete('/instance/logout', async (req, resp) => {
     }
 })
 
-// app.post('/api/whatsapp/schedule', async (req, resp) => {
-//     console.log(req.body);
-//     req.query.key = req.body.sessionId;
-//     console.log(req.query.key, 'query set')
-
-//     await restoreWhatsappSession(req, resp)
-//         .then(() => {
-//             console.log('restored')
-//             checkIfInstanceIsActive(req)
-//                 .then(response => {
-//                     console.log(response, 'here222')
-//                     if (response && !response.error) {
-//                         req?.body?.chatRecipients?.forEach(item => {
-//                             let message = req.body.message;
-//                             const chatId = item.phoneNumber.substring(0, 1) == '+' ? item.phoneNumber.substring(1) : item.phoneNumber;
-//                             if (req.body?.message?.includes("#name#")) {
-//                                 message = message.replaceAll("#name#", item.name ? item.name : "")
-//                             }
-//                             const payload = {
-//                                 id: chatId,
-//                                 message
-//                             }
-//                             sendMessage(req, payload)
-//                         });
-//                     } else {
-
-//                         resp.status(500).send('Failed to fetch data');
-//                     }
-//                 })
-//                 .catch(error => {
-//                     console.error(error)
-//                 })
-//         })
-//         .catch((err) => console.error(err))
-// })
-
 
 app.post('/api/whatsapp/schedule', async (req, resp) => {
     try {
-        console.log(req.body);
-        req.query.key = req.body.sessionId;
-        console.log(req.query.key, 'query set')
+        const { chatRecipients, message, messageGroupID, sessionId, date, fileUrl } = req.body;
+        req.query.key = sessionId;
+        req.body.id = chatRecipients
+        console.log({ chatRecipients, message, messageGroupID, sessionId, date, fileUrl })
 
+        // Restore session
         await restoreWhatsappSession(req, resp);
-
         console.log('restored');
 
+        // Check if instance is active
         const response = await checkIfInstanceIsActive(req);
-
-        console.log(response, 'here222');
-
-        if (response && !response.error) {
-            for (const item of req.body.chatRecipients) {
-                let message = req.body.message;
-                const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
-                if (req.body.message.includes("#name#")) {
-                    message = message.replaceAll("#name#", item.name ? item.name : "");
-                }
-                const payload = {
-                    id: chatId,
-                    message
-                };
-                await sendMessage(req, payload);
+        console.log(response, 'Instance active');
+        if (fileUrl && fileUrl.length > 0) {
+            req.body.fileUrl = fileUrl
+            let parseFile = JSON.parse(fileUrl);
+            if (parseFile.fileType.includes("image")) {
+                await sendImage(req, resp)
+            } else if (parseFile.fileType.includes("video")) {
+                await sendVideo(req, resp)
+            } else {
+                console.log("Different file type")
             }
         } else {
-            console.log('Failed to send please try again')
-            // resp.status(500).send('Failed to fetch data');
+            await sendText(req)
+            // Send the final response after all messages have been sent
+            resp.send({ message: 'All messages sent' });
         }
     } catch (error) {
         console.error(error);
