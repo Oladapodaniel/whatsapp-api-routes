@@ -36,8 +36,8 @@ console.log(process.env.NODE_ENV)
 const restoreWhatsappSession = async (req, resp) => {
     console.log(`${baseUrl}/instance/restore`)
     try {
-        await fetch(`${baseUrl}/instance/restore`);
-        // const JSONResponse = await res.json();
+        const res = await fetch(`${baseUrl}/instance/restore`);
+        const JSONResponse = await res.json();
         return JSONResponse
     } catch (err) {
         console.log(err.message);
