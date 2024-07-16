@@ -298,8 +298,8 @@ app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
 
 const sendText = async (req) => {
     console.log('reachinggg')
-    for (let i = 0; i < req?.body?.id?.length; i++) {
-        let item = req?.body?.id[i]
+    for (let i = 0; i < req?.body?.recipients?.length; i++) {
+        let item = req?.body?.recipients[i]
         let message = req.body.message;
         const chatId = item.phoneNumber.substring(0, 1) == '+' ? item.phoneNumber.substring(1) : item.phoneNumber;
         if (message?.includes("#name#")) {
@@ -308,13 +308,13 @@ const sendText = async (req) => {
         const payload = {
             id: chatId,
             message,
-            messageGroupID: req.body.messageGroupID
+            messageGroupID: req.body.id
         }
         await sendMessage(req, payload)
 
         // Throttle request after every fifth request
         // Check if the current index is a multiple of 5 (except for the last item)
-        if ((i + 1) % 5 === 0 && i < req?.body?.id?.length - 1) {
+        if ((i + 1) % 5 === 0 && i < req?.body?.recipients?.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 10000));
         }
     }
@@ -323,18 +323,18 @@ const sendText = async (req) => {
 const sendImage = async (req, resp) => {
     try {
         // Extract data from req.body and req.file
-        const { id, message, fileUrl, messageGroupID } = req.body;
-        console.log(id, message, fileUrl, messageGroupID, 'here')
+        const { id, message, fileUrl, recipients } = req.body;
+        console.log(id, message, fileUrl, recipients, 'here')
         const { url, fileType } = JSON.parse(fileUrl)
         console.log(url, fileType)
         const bufferFile = await getBuffer(url)
         console.log(bufferFile)
 
-        if (!id || !Array.isArray(id) || id.length === 0 || !message || !fileUrl) {
+        if (!recipients || !Array.isArray(recipients) || recipients.length === 0 || !message || !fileUrl) {
             return resp.status(400).send('Invalid request body');
         }
 
-        for (const item of id) {
+        for (const item of recipients) {
             const caption = message.includes("#name#") ? message.replaceAll("#name#", item.name ? item.name : "") : message;
             const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
             // Create a new FormData object
@@ -352,14 +352,14 @@ const sendImage = async (req, resp) => {
             const payload = {
                 id: chatId,
                 message,
-                messageGroupID: messageGroupID
+                messageGroupID: id
             }
             await sendImageMessage(req, formData, payload);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
-            const i = id.indexOf(item);
-            if ((i + 1) % 5 === 0 && i < id.length - 1) {
+            const i = recipients.indexOf(item);
+            if ((i + 1) % 5 === 0 && i < recipients.length - 1) {
                 await new Promise((resolve) => setTimeout(resolve, 10000));
             }
         }
@@ -375,18 +375,18 @@ const sendImage = async (req, resp) => {
 const sendVideo = async (req, resp) => {
     try {
         // Extract data from req.body and req.file
-        const { id, message, fileUrl, messageGroupID } = req.body;
-        console.log(id, message, fileUrl, messageGroupID, 'here')
+        const { id, message, fileUrl, recipients } = req.body;
+        console.log(id, message, fileUrl, recipients, 'here')
         const { url, fileType } = JSON.parse(fileUrl)
         console.log(url, fileType)
         const bufferFile = await getBuffer(url)
         console.log(bufferFile)
 
-        if (!id || !Array.isArray(id) || id.length === 0 || !message || !fileUrl) {
+        if (!recipients || !Array.isArray(recipients) || recipients.length === 0 || !message || !fileUrl) {
             return resp.status(400).send('Invalid request body');
         }
 
-        for (const item of id) {
+        for (const item of recipients) {
             const caption = message.includes("#name#") ? message.replaceAll("#name#", item.name ? item.name : "") : message;
             const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
             // Create a new FormData object
@@ -404,14 +404,14 @@ const sendVideo = async (req, resp) => {
             const payload = {
                 id: chatId,
                 message,
-                messageGroupID: messageGroupID
+                messageGroupID: id
             }
             await sendVideoMessage(req, formData, payload);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
-            const i = id.indexOf(item);
-            if ((i + 1) % 5 === 0 && i < id.length - 1) {
+            const i = recipients.indexOf(item);
+            if ((i + 1) % 5 === 0 && i < recipients.length - 1) {
                 await new Promise((resolve) => setTimeout(resolve, 10000));
             }
         }
@@ -462,14 +462,14 @@ app.delete('/instance/logout', async (req, resp) => {
 app.post('/api/whatsapp/schedule', async (req, resp) => {
     try {
         console.log(req.body, 'schedule request here')
-        const { ChatRecipients, Message, MessageGroupID, SessionId, Date, FileUrl } = req.body;
+        const { ChatRecipients, Message, ID, SessionId, Date, FileUrl } = req.body;
         req.query.key = SessionId;
         req.body.id = ChatRecipients
         req.body.message = Message;
-        req.body.messageGroupID = MessageGroupID;
+        req.body.messageGroupID = ID;
         req.body.date = Date;
         req.body.fileUrl = FileUrl
-        console.log({ ChatRecipients, Message, MessageGroupID, SessionId, Date, FileUrl })
+        console.log({ ChatRecipients, Message, ID, SessionId, Date, FileUrl })
 
         // Restore session
         await restoreWhatsappSession(req, resp);
