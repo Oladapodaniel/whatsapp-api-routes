@@ -436,6 +436,7 @@ app.delete('/instance/logout', async (req, resp) => {
 
 app.post('/api/whatsapp/schedule', async (req, resp) => {
     try {
+        console.log(req.body, 'schedule request here')
         const { chatRecipients, message, messageGroupID, sessionId, date, fileUrl } = req.body;
         req.query.key = sessionId;
         req.body.id = chatRecipients
