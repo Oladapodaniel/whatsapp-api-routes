@@ -73,14 +73,15 @@ const sendMessage = async (req, payload) => {
         messageGroupID: payload.messageGroupID,
         phone: payload.id
     }
-    console.log(reportPayload, 'reportpayload')
+    console.log(reportPayload, 'reportpayload test')
     await sendDeliveryReport(reportPayload);
+    
 
     console.log(JSONResponse, 'senttt')
     return JSONResponse;
 }
 
-const sendImageMessage = async (req, formData) => {
+const sendImageMessage = async (req, formData, payload) => {
     try {
         const res = await fetch(`${baseUrl}/message/image?key=${req.query.key}`, {
             method: 'POST',
@@ -88,13 +89,20 @@ const sendImageMessage = async (req, formData) => {
         });
 
         const jsonResponse = await res.json();
+        const reportPayload = {
+            ...jsonResponse,
+            messageGroupID: payload.messageGroupID,
+            phone: payload.id
+        }
+        console.log(reportPayload, 'reportpayload Image')
+        await sendDeliveryReport(reportPayload);
         console.log(jsonResponse, 'sent');
     } catch (err) {
         console.error(err.message);
     }
 };
 
-const sendVideoMessage = async (req, formData) => {
+const sendVideoMessage = async (req, formData, payload) => {
     try {
         const res = await fetch(`${baseUrl}/message/video?key=${req.query.key}`, {
             method: 'POST',
@@ -102,6 +110,13 @@ const sendVideoMessage = async (req, formData) => {
         });
 
         const jsonResponse = await res.json();
+        const reportPayload = {
+            ...jsonResponse,
+            messageGroupID: payload.messageGroupID,
+            phone: payload.id
+        }
+        console.log(reportPayload, 'reportpayload Video')
+        await sendDeliveryReport(reportPayload);
         console.log(jsonResponse, 'sent');
     } catch (err) {
         console.error(err.message);
@@ -334,7 +349,12 @@ const sendImage = async (req, resp) => {
             formData.append('file', fileBlob, 'filename')
 
             console.log('reaching')
-            await sendImageMessage(req, formData);
+            const payload = {
+                id: chatId,
+                message,
+                messageGroupID: messageGroupID
+            }
+            await sendImageMessage(req, formData, payload);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
@@ -381,7 +401,12 @@ const sendVideo = async (req, resp) => {
             formData.append('file', fileBlob, 'filename')
 
             console.log('reaching')
-            await sendVideoMessage(req, formData);
+            const payload = {
+                id: chatId,
+                message,
+                messageGroupID: messageGroupID
+            }
+            await sendVideoMessage(req, formData, payload);
 
             // Throttle request after every fifth request
             // Check if the current index is a multiple of 5 (except for the last item)
