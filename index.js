@@ -464,7 +464,7 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         console.log(req.body, 'schedule request here')
         const { ChatRecipients, Message, ID, SessionId, Date, FileUrl } = req.body;
         req.query.key = SessionId;
-        req.body.id = ChatRecipients
+        req.body.recipients = ChatRecipients
         req.body.message = Message;
         req.body.messageGroupID = ID;
         req.body.date = Date;
