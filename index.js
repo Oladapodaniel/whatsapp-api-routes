@@ -437,10 +437,14 @@ app.delete('/instance/logout', async (req, resp) => {
 app.post('/api/whatsapp/schedule', async (req, resp) => {
     try {
         console.log(req.body, 'schedule request here')
-        const { chatRecipients, message, messageGroupID, sessionId, date, fileUrl } = req.body;
-        req.query.key = sessionId;
-        req.body.id = chatRecipients
-        console.log({ chatRecipients, message, messageGroupID, sessionId, date, fileUrl })
+        const { ChatRecipients, Message, MessageGroupID, SessionId, Date, FileUrl } = req.body;
+        req.query.key = SessionId;
+        req.body.id = ChatRecipients
+        req.body.message = Message;
+        req.body.messageGroupID = MessageGroupID;
+        req.body.date = Date;
+        req.body.fileUrl = FileUrl
+        console.log({ ChatRecipients, Message, MessageGroupID, SessionId, Date, FileUrl })
 
         // Restore session
         await restoreWhatsappSession(req, resp);
@@ -449,9 +453,9 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         // Check if instance is active
         const response = await checkIfInstanceIsActive(req);
         console.log(response, 'Instance active');
-        if (fileUrl && fileUrl.length > 0) {
-            req.body.fileUrl = fileUrl
-            let parseFile = JSON.parse(fileUrl);
+        if (FileUrl && FileUrl.length > 0) {
+            req.body.fileUrl = FileUrl
+            let parseFile = JSON.parse(FileUrl);
             if (parseFile.fileType.includes("image")) {
                 await sendImage(req, resp)
             } else if (parseFile.fileType.includes("video")) {
