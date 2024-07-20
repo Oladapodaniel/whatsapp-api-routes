@@ -45,6 +45,16 @@ const restoreWhatsappSession = async (req, resp) => {
     }
 }
 
+const initializeInstance = async (req) => {
+    try {
+        const res = await fetch(`${baseUrl}/instance/init?key=${req.query.key}&token=${process.env.TOKEN}`);
+        const JSONResponse = await res.json();
+        return JSONResponse
+    } catch (err) {
+        return err
+    }
+}
+
 const instanceInfo = async (req) => {
     console.log(req.query.key, 'instance key')
     try {
@@ -75,7 +85,7 @@ const sendMessage = async (req, payload) => {
     }
     console.log(reportPayload, 'reportpayload test')
     await sendDeliveryReport(reportPayload);
-    
+
 
     console.log(JSONResponse, 'senttt')
     return JSONResponse;
@@ -252,14 +262,15 @@ app.get('/instance/restore', async (req, resp) => {
 });
 
 app.get('/initializeWhatsapp', async (req, resp) => {
-    try {
-        const res = await fetch(`${baseUrl}/instance/init?key=${req.query.key}&token=${process.env.TOKEN}`);
-        const JSONResponse = await res.json();
-        resp.send(JSONResponse);
-    } catch (err) {
-        console.log(err.message);
-        resp.status(500).send('Failed to fetch data');
-    }
+    initializeInstance(req)
+        .then(response => {
+            console.log(response)
+            resp.send(response);
+        })
+        .catch(error => {
+            console.error(error)
+            resp.status(500).send('Failed to fetch data');
+        })
 });
 
 app.get('/scanQRCode', async (req, resp) => {
@@ -426,7 +437,7 @@ const sendVideo = async (req, resp) => {
 
 app.post('/send/text', async (req, resp) => {
     await sendText(req);
-    // sentBroadCastList()
+    sentBroadCastList()
     // Send the final response after all messages have been sent
     resp.send({ message: 'All messages sent' });
 });
@@ -471,28 +482,52 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         req.body.fileUrl = FileUrl
         console.log({ ChatRecipients, Message, ID, SessionId, Date, FileUrl })
 
-        // Restore session
-        await restoreWhatsappSession(req, resp);
-        console.log('restored');
+        // Initialize session
+        const initResponse = await initializeInstance(req);
+        console.log(!initResponse.error ? 'Initialized' : 'Not Initialized')
 
-        // Check if instance is active
-        const response = await checkIfInstanceIsActive(req);
-        console.log(response, 'Instance active');
-        if (FileUrl && FileUrl.length > 0) {
-            req.body.fileUrl = FileUrl
-            let parseFile = JSON.parse(FileUrl);
-            if (parseFile.fileType.includes("image")) {
-                await sendImage(req, resp)
-            } else if (parseFile.fileType.includes("video")) {
-                await sendVideo(req, resp)
+        // Restore session
+        const restoreResponse = await restoreWhatsappSession(req, resp);
+        console.log(restoreResponse, 'restored');
+        if (!restoreResponse.error) {
+            if (restoreResponse.data && restoreResponse.data.length > 0) {
+                let checkSession = restoreResponse.data.some(
+                    (i) => i.toLowerCase() === SessionId.toLowerCase()
+                );
+                if (checkSession) {
+                    // Wait until instance is established
+                    // checkInstanceStatus();
+                    // Check if instance is active
+                    const response = await checkIfInstanceIsActive(req);
+                    console.log(response, 'Instance active');
+                    if (FileUrl && FileUrl.length > 0) {
+                        req.body.fileUrl = FileUrl
+                        let parseFile = JSON.parse(FileUrl);
+                        if (parseFile.fileType.includes("image")) {
+                            await sendImage(req, resp)
+                        } else if (parseFile.fileType.includes("video")) {
+                            await sendVideo(req, resp)
+                        } else {
+                            console.log("Different file type")
+                        }
+                    } else {
+                        await sendText(req)
+                        // Send the final response after all messages have been sent
+                        resp.send({ message: 'All messages sent' });
+                    }
+                } else {
+                    resp.send({ message: 'Phone not connected, kindly connect first' });
+                    //   getQRCode();
+                    // initialiseWhatsapp();
+                }
             } else {
-                console.log("Different file type")
+                resp.send({ message: 'Phone not connected, kindly connect first' });
+                // getQRCode();
+                // initialiseWhatsapp();
             }
-        } else {
-            await sendText(req)
-            // Send the final response after all messages have been sent
-            resp.send({ message: 'All messages sent' });
         }
+        return;
+
     } catch (error) {
         console.error(error);
         resp.status(500).send('Internal Server Error');
