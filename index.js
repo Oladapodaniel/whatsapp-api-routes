@@ -14,7 +14,8 @@ const getBuffer = require('./utils');
 
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
-const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333"
+const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333";
+const phoneNotConnected = "Phone not connected, kindly connect first"
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -34,9 +35,9 @@ dotenv.config();
 console.log(process.env.NODE_ENV)
 
 const restoreWhatsappSession = async (req, resp) => {
-    console.log(`${baseUrl}/instance/restore`)
+    console.log(`${baseUrl}/instance/list`)
     try {
-        const res = await fetch(`${baseUrl}/instance/restore`);
+        const res = await fetch(`${baseUrl}/instance/list`);
         const JSONResponse = await res.json();
         return JSONResponse
     } catch (err) {
@@ -133,6 +134,8 @@ const sendVideoMessage = async (req, formData, payload) => {
     }
 };
 
+
+let instanceCheckNum = 0
 const checkIfInstanceIsActive = async (req) => {
     return new Promise((resolve, reject) => {
         // Check if instance is active before sending message
@@ -149,8 +152,16 @@ const checkIfInstanceIsActive = async (req) => {
                         resolve(response);
                     } else {
                         setTimeout(() => {
-                            console.log("Instance not active yet, check will commence again in 10 secs");
-                            checkIfInstanceIsActive(req).then(resolve).catch(reject);
+                            instanceCheckNum++
+                            if (instanceCheckNum >= 3) {
+                                console.log('phone is not connecteddddddddd 1')
+                                resolve({ message: phoneNotConnected })
+                                instanceCheckNum = 0
+                            } else {
+                                console.log('phone is not connecteddddddddd 2')
+                                console.log("Instance not active yet, check will commence again in 10 secs");
+                                checkIfInstanceIsActive(req).then(resolve).catch(reject);
+                            }
                         }, 10000);
                     }
                 }
@@ -256,7 +267,7 @@ app.get('/', (req, res) => {
 });
 
 console.log(process.env.TOKEN, 'token')
-app.get('/instance/restore', async (req, resp) => {
+app.get('/instance/list', async (req, resp) => {
     const JSONResponse = await restoreWhatsappSession(req, resp)
     resp.send(JSONResponse);
 });
@@ -491,14 +502,17 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         console.log(restoreResponse, 'restored');
         if (!restoreResponse.error) {
             if (restoreResponse.data && restoreResponse.data.length > 0) {
-                let checkSession = restoreResponse.data.some(
-                    (i) => i.toLowerCase() === SessionId.toLowerCase()
+                let checkSession = restoreResponse.data.find(
+                    (i) => i.instance_key.toLowerCase() === SessionId.toLowerCase()
                 );
                 if (checkSession) {
                     // Wait until instance is established
-                    // checkInstanceStatus();
                     // Check if instance is active
                     const response = await checkIfInstanceIsActive(req);
+                    if (response && response?.message?.includes(phoneNotConnected)) {
+                        resp.send(response);
+                        return;
+                    }
                     console.log(response, 'Instance active');
                     if (FileUrl && FileUrl.length > 0) {
                         req.body.fileUrl = FileUrl
@@ -516,12 +530,12 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
                         resp.send({ message: 'All messages sent' });
                     }
                 } else {
-                    resp.send({ message: 'Phone not connected, kindly connect first' });
+                    resp.send({ message: phoneNotConnected });
                     //   getQRCode();
                     // initialiseWhatsapp();
                 }
             } else {
-                resp.send({ message: 'Phone not connected, kindly connect first' });
+                resp.send({ message: phoneNotConnected });
                 // getQRCode();
                 // initialiseWhatsapp();
             }
