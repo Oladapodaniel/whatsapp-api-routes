@@ -41,7 +41,8 @@ const restoreWhatsappSession = async (req, resp) => {
         const JSONResponse = await res.json();
         return JSONResponse
     } catch (err) {
-        console.log(err.message);
+        console.log(err.message,  'error trying to restore');
+        return err
         // resp.status(500).send('Failed to fetch data');
     }
 }
@@ -153,7 +154,7 @@ const checkIfInstanceIsActive = async (req) => {
                     } else {
                         setTimeout(() => {
                             instanceCheckNum++
-                            if (instanceCheckNum >= 3) {
+                            if (instanceCheckNum >= 10) {
                                 console.log('phone is not connecteddddddddd 1')
                                 resolve({ message: phoneNotConnected })
                                 instanceCheckNum = 0
@@ -492,6 +493,7 @@ app.post('/api/whatsapp/schedule', async (req, resp) => {
         req.body.date = Date;
         req.body.fileUrl = FileUrl
         console.log({ ChatRecipients, Message, ID, SessionId, Date, FileUrl })
+        console.log(req.body)
 
         // Initialize session
         const initResponse = await initializeInstance(req);
