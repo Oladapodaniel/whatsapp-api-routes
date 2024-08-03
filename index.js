@@ -144,6 +144,13 @@ const checkIfInstanceIsActive = async (req) => {
             .then((response) => {
                 console.log(response, 'response here');
                 if (response.error) {
+                    // Initialize session
+                    initializeInstance(req)
+                        .then(res => {
+                            console.log('instance reinitilaized, checking if instance is active')
+                            checkIfInstanceIsActive(req);
+                        }).catch((err) => console.log(err, 'instance reinitialized failed'))
+                    console.log('initResponse')
                     setTimeout(() => {
                         console.log("Instance not active yet, check will commence again in 10 secs");
                         checkIfInstanceIsActive(req).then(resolve).catch(reject);
