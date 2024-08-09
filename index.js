@@ -338,7 +338,7 @@ const sendText = async (req) => {
         const payload = {
             id: chatId,
             message,
-            messageGroupID: req.body.id
+            messageGroupID: req.body.messageGroupID
         }
         await sendMessage(req, payload)
 
@@ -456,7 +456,7 @@ const sendVideo = async (req, resp) => {
 
 app.post('/send/text', async (req, resp) => {
     await sendText(req);
-    sentBroadCastList()
+    // sentBroadCastList()
     // Send the final response after all messages have been sent
     resp.send({ message: 'All messages sent' });
 });
