@@ -19,6 +19,8 @@ const upload = multer({ storage: storage })
 const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333";
 const phoneNotConnected = "Phone not connected, kindly connect first"
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // Delay utility
+const batchSize = 5; // Maximum concurrent requests
+const delayMs = 10000; // Delay between batches
 
 app.use(cors({
     origin: '*', // Specify the allowed origin (replace with your client's domain)
@@ -90,7 +92,7 @@ const sendMessage = async (req, payload) => {
         text: req.body.message
     }
     console.log(reportPayload, 'reportpayload test')
-    // console.log(reportPayload.data.message.extendedTextMessage, 'reportinnerpayload test')
+    // console.log(JSONResponse.data.message.extendedTextMessage, 'reportinnerpayload test')
     // await sendDeliveryReport(reportPayload);
 
 
@@ -99,27 +101,15 @@ const sendMessage = async (req, payload) => {
 }
 
 const sendImageMessage = async (req, formData, payload) => {
-    // fetch(`${baseUrl}/message/image?key=${req.query.key}`, { method: 'POST', body: formData })
-    // .then(res => res.json())
-    // .then(json => console.log(json, 'json values'));
-
     try {
         const res = await fetch(`${baseUrl}/message/image?key=${req.query.key}`, {
             method: 'POST',
             body: formData
         });
 
-        console.log(res.headers, 'fhfhfh')
-
         const jsonResponse = await res.json();
-        const reportPayload = {
-            ...jsonResponse,
-            messageGroupID: payload.messageGroupID,
-            phone: payload.id
-        }
-        // console.log(reportPayload, 'reportpayload Image')
-        // await sendDeliveryReport(reportPayload);
         console.log(jsonResponse, 'sent');
+        return jsonResponse
     } catch (err) {
         console.error(err.message);
     }
@@ -133,14 +123,8 @@ const sendVideoMessage = async (req, formData, payload) => {
         });
 
         const jsonResponse = await res.json();
-        const reportPayload = {
-            ...jsonResponse,
-            messageGroupID: payload.messageGroupID,
-            phone: payload.id
-        }
-        console.log(reportPayload, 'reportpayload Video')
-        await sendDeliveryReport(reportPayload);
         console.log(jsonResponse, 'sent');
+        return jsonResponse
     } catch (err) {
         console.error(err.message);
     }
@@ -192,94 +176,25 @@ const checkIfInstanceIsActive = async (req) => {
     });
 };
 
-// const checkIfInstanceIsActive = async (req) => {
-//     // Check if instance is active before sending message
-//     try {
-//         let response = await instanceInfo(req);
-//         console.log(response, 'response here')
-//         if (response.error) {
-//             setTimeout(() => {
-//                 console.log("Instance not active yet, check will commence again in 10 secs")
-//                 checkIfInstanceIsActive(req);
-//             }, 10000);
-//         } else {
-//             if (response && response.instance_data && response.instance_data.user && Object.keys(response.instance_data.user).length > 0) {
-//                 return response;
-//             } else {
-//                 setTimeout(() => {
-//                     console.log("Instance not active yet, check will commence again in 10 secs")
-//                     checkIfInstanceIsActive(req);
-//                 }, 10000);
-//             }
-//         }
-//     } catch (error) {
-//         console.log(error, 'error here')
-//     }
-// }
 
 const sendDeliveryReport = async (payload) => {
-    // try {
-    fetch(`https://churchplusv3coreapi.azurewebsites.net/WhatsAppDeliveryReport`, {
-        method: 'POST',
-        body: payload,
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-        // .then(response => response.text())
-        .then(data => {
-            console.log('Report sent', 'Response:', data);
-            // Process the response data
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Handle any errors
-        });
-}
-
-const sentBroadCastList = () => {
-    fetch(`${baseUrl}/message/list?key=${'session-66d46b36-e77f'}`, {
-        method: 'POST',
-        body: {
-            id: "",
-            msgdata: {
-                buttonText: "Button Text",
-                text: "Middle Text",
-                title: "Head Title",
-                description: "Footer Description",
-                sections: [
-                    {
-                        title: "title",
-                        rows: [
-                            {
-                                title: "Title Option 1",
-                                description: "Option Description",
-                                rowId: "string"
-                            }
-                        ]
-                    }
-                ],
-                listType: 0
+    try {
+        const res = await fetch(`https://churchplusv3coreapi.azurewebsites.net/WhatsAppDeliveryReport`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: {
+                'Content-Type': 'application/json',
             }
-        },
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-        .then(response => response.text())
-        .then(data => {
-            console.log('Broadcast sent', 'Response:', data);
-            // Process the response data
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Handle any errors
         });
+        const textResponse = await res.text(); // Get raw text response
+        console.log(textResponse, 'reported'); // Log it to see what you received
+    }
+    catch (err) {
+        console.log(err)
+    }
 }
 
-// app.post('/send/text', async (req, resp) => {
 
-// })
 
 app.get('/', (req, res) => {
     res.send('<h1>Node application for whatsapp api routes</h1>');
@@ -338,34 +253,11 @@ app.get('/groups/getAllWhatsappGroups', async (req, resp) => {
 });
 
 const sendText = async (req) => {
-    // console.log('reachinggg')
-    // for (let i = 0; i < req?.body?.recipients?.length; i++) {
-    //     let item = req?.body?.recipients[i]
-    //     let message = req.body.message;
-    //     const chatId = item.phoneNumber.substring(0, 1) == '+' ? item.phoneNumber.substring(1) : item.phoneNumber;
-    //     if (message?.includes("#name#")) {
-    //         message = message.replaceAll("#name#", item.name ? item.name : "")
-    //     }
-    //     const payload = {
-    //         id: chatId,
-    //         message,
-    //         messageGroupID: req.body.id
-    //     }
-    //     await sendMessage(req, payload)
-
-    //     // Throttle request after every fifth request
-    //     // Check if the current index is a multiple of 5 (except for the last item)
-    //     if ((i + 1) % 5 === 0 && i < req?.body?.recipients?.length - 1) {
-    //         await new Promise((resolve) => setTimeout(resolve, 10000));
-    //     }
-    // }
 
     console.log('Processing recipients...');
 
     const recipients = req?.body?.recipients || [];
     const messageTemplate = req?.body?.message || '';
-    const batchSize = 2; // Maximum concurrent requests
-    const delayMs = 10000; // Delay between batches
 
     const limit = pLimit(batchSize); // Set concurrency limit
     const results = [];
@@ -407,6 +299,17 @@ const sendText = async (req) => {
         console.log(batchResults, 'batchResults')
         results.push(...batchResults);
 
+        // Send Delivery Report
+        const reportPayload = batchResults.map(i => ({
+            error: i.response?.error,
+            messageGroupID: req.body.id,
+            phone: i.recipient?.phoneNumber,
+            message: messageTemplate,
+        }))
+
+        console.log(reportPayload, 'report payload here')
+        await sendDeliveryReport(reportPayload);
+
         // Delay before the next batch, if more recipients remain
         if (i + batchSize < recipients.length) {
             console.log(`Delaying for ${delayMs / 1000} seconds before the next batch...`);
@@ -419,72 +322,18 @@ const sendText = async (req) => {
 }
 
 const sendImage = async (req, resp) => {
-    // try {
-    //     // Extract data from req.body and req.file
-    //     const { id, message, fileUrl, recipients } = req.body;
-    //     console.log(id, message, fileUrl, recipients, 'here')
-    //     const { url, fileType } = JSON.parse(fileUrl)
-    //     console.log(url, fileType)
-    //     const bufferFile = await getBuffer(url)
-    //     console.log(bufferFile)
-
-    //     if (!recipients || !Array.isArray(recipients) || recipients.length === 0 || !message || !fileUrl) {
-    //         return resp.status(400).send('Invalid request body');
-    //     }
-
-    //     for (const item of recipients) {
-    //         const caption = message.includes("#name#") ? message.replaceAll("#name#", item.name ? item.name : "") : message;
-    //         const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
-    //         // Create a new FormData object
-    //         const formData = new FormData();
-
-    //         // Append text data from req.body
-    //         formData.append('id', chatId);
-    //         formData.append('caption', caption);
-
-    //         // Convert buffer to Blob
-    //         const fileBlob = new Blob([bufferFile], { type: fileType });
-    //         formData.append('file', fileBlob, 'filename')
-
-    //         console.log('reaching')
-    //         const payload = {
-    //             id: chatId,
-    //             message,
-    //             messageGroupID: id
-    //         }
-    //         await sendImageMessage(req, formData, payload);
-
-    //         // Throttle request after every fifth request
-    //         // Check if the current index is a multiple of 5 (except for the last item)
-    //         const i = recipients.indexOf(item);
-    //         if ((i + 1) % 5 === 0 && i < recipients.length - 1) {
-    //             await new Promise((resolve) => setTimeout(resolve, 10000));
-    //         }
-    //     }
-    //     // Send the final response after all messages have been sent
-    //     resp.send({ message: 'All messages sent with images' });
-
-    // } catch (err) {
-    //     console.error(err, 'error here');
-    //     resp.status(500).send('Internal server error');
-    // }
 
     try {
         // Extract data from req.body and req.file
         const { id, message, fileUrl, recipients } = req.body;
         console.log(id, message, fileUrl, recipients, 'here');
         const { url, fileType } = JSON.parse(fileUrl);
-        console.log(url, fileType);
-        // const fileBody = getFileBody.getFileBody();
         const bufferFile = await utils.getBuffer(url); // Assuming `getBuffer` fetches the file buffer
-        console.log(bufferFile);
 
         if (!recipients || !Array.isArray(recipients) || recipients.length === 0 || !message || !fileUrl) {
             return resp.status(400).send('Invalid request body');
         }
 
-        const batchSize = 2; // Maximum concurrent requests
-        const delayMs = 10000; // Delay between batches
         const limit = pLimit(batchSize); // Set concurrency limit
         const results = [];
 
@@ -508,23 +357,11 @@ const sendImage = async (req, resp) => {
                     formData.append('id', chatId);
                     formData.append('caption', caption);
 
-                    // Convert buffer to Blob and append to formData
-                    const fileBlob = new Blob([bufferFile], { type: fileType });
-                    // console.log(fileBlob, 'fileBlobfileBlobfileBlob')
-                    // formData.append('file', new Buffer(10), 'filename');
                     formData.append('file', bufferFile, {
                         contentType: fileType,
                         name: 'file',
                         filename: 'fileName',
                     })
-
-
-                    // Append the fetched file as a stream
-                    // formData.append('file', fileBody, {
-                    //     contentType: 'image/jpeg', // Set appropriate content type
-                    //     filename: 'FC_logo.jpeg',   // Set desired filename
-                    // });
-
 
                     console.log('Sending image message...');
                     const payload = {
@@ -534,8 +371,8 @@ const sendImage = async (req, resp) => {
                     };
 
                     try {
-                        await sendImageMessage(req, formData, payload);
-                        return { success: true, recipient: item };
+                        const response = await sendImageMessage(req, formData, payload);
+                        return { success: true, recipient: item, response };
                     } catch (error) {
                         console.error(`Error sending image message to ${item.phoneNumber}:`, error.message);
                         return { success: false, error: error.message, recipient: item };
@@ -545,7 +382,17 @@ const sendImage = async (req, resp) => {
 
             // Wait for the current batch to complete
             const batchResults = await Promise.all(batchPromises);
+            console.log(batchResults, 'bacthresults here')
             results.push(...batchResults);
+            // Send Delivery Report
+            const reportPayload = batchResults.map(i => ({
+                error: i.response?.error,
+                messageGroupID: id,
+                phone: i.recipient?.phoneNumber,
+                message
+            }))
+
+            await sendDeliveryReport(reportPayload);
 
             // Delay before the next batch, if more recipients remain
             if (i + batchSize < recipients.length) {
@@ -564,50 +411,87 @@ const sendImage = async (req, resp) => {
 }
 
 const sendVideo = async (req, resp) => {
+
     try {
         // Extract data from req.body and req.file
         const { id, message, fileUrl, recipients } = req.body;
-        console.log(id, message, fileUrl, recipients, 'here')
-        const { url, fileType } = JSON.parse(fileUrl)
-        console.log(url, fileType)
-        const bufferFile = await getBuffer(url)
-        console.log(bufferFile)
+        console.log(id, message, fileUrl, recipients, 'here');
+        const { url, fileType } = JSON.parse(fileUrl);
+        // const fileBody = getFileBody.getFileBody();
+        const bufferFile = await utils.getBuffer(url); // Assuming `getBuffer` fetches the file buffer
 
         if (!recipients || !Array.isArray(recipients) || recipients.length === 0 || !message || !fileUrl) {
             return resp.status(400).send('Invalid request body');
         }
 
-        for (const item of recipients) {
-            const caption = message.includes("#name#") ? message.replaceAll("#name#", item.name ? item.name : "") : message;
-            const chatId = item.phoneNumber.startsWith('+') ? item.phoneNumber.substring(1) : item.phoneNumber;
-            // Create a new FormData object
-            const formData = new FormData();
+        const limit = pLimit(batchSize); // Set concurrency limit
+        const results = [];
 
-            // Append text data from req.body
-            formData.append('id', chatId);
-            formData.append('caption', caption);
+        for (let i = 0; i < recipients.length; i += batchSize) {
+            const batch = recipients.slice(i, i + batchSize);
 
-            // Convert buffer to Blob
-            const fileBlob = new Blob([bufferFile], { type: fileType });
-            formData.append('file', fileBlob, 'filename')
+            console.log(`Processing batch ${Math.ceil((i + 1) / batchSize)}...`);
+            const batchPromises = batch.map((item) =>
+                limit(async () => {
+                    let caption = message;
+                    if (message?.includes("#name#")) {
+                        caption = message.replaceAll("#name#", item.name || '');
+                    }
+                    const chatId = item.phoneNumber.startsWith('+')
+                        ? item.phoneNumber.substring(1)
+                        : item.phoneNumber;
 
-            console.log('reaching')
-            const payload = {
-                id: chatId,
-                message,
-                messageGroupID: id
-            }
-            await sendVideoMessage(req, formData, payload);
+                    // Create a new FormData object
+                    const formData = new FormData();
+                    formData.append('id', chatId);
+                    formData.append('caption', caption);
 
-            // Throttle request after every fifth request
-            // Check if the current index is a multiple of 5 (except for the last item)
-            const i = recipients.indexOf(item);
-            if ((i + 1) % 5 === 0 && i < recipients.length - 1) {
-                await new Promise((resolve) => setTimeout(resolve, 10000));
+                    formData.append('file', bufferFile, {
+                        contentType: fileType,
+                        name: 'file',
+                        filename: 'fileName',
+                    })
+
+                    console.log('Sending video message...');
+                    const payload = {
+                        id: chatId,
+                        message,
+                        messageGroupID: id,
+                    };
+
+                    try {
+                        const response = await sendVideoMessage(req, formData, payload);
+                        return { success: true, recipient: item, response };
+                    } catch (error) {
+                        console.error(`Error sending video message to ${item.phoneNumber}:`, error.message);
+                        return { success: false, error: error.message, recipient: item };
+                    }
+                })
+            );
+
+            // Wait for the current batch to complete
+            const batchResults = await Promise.all(batchPromises);
+            console.log(batchResults, 'bacthresults here')
+            results.push(...batchResults);
+            // Send Delivery Report
+            const reportPayload = batchResults.map(i => ({
+                error: i.response?.error,
+                messageGroupID: id,
+                phone: i.recipient?.phoneNumber,
+                message
+            }))
+
+            await sendDeliveryReport(reportPayload);
+
+            // Delay before the next batch, if more recipients remain
+            if (i + batchSize < recipients.length) {
+                console.log(`Delaying for ${delayMs / 1000} seconds before the next batch...`);
+                await delay(delayMs);
             }
         }
+
         // Send the final response after all messages have been sent
-        resp.send({ message: 'All messages sent with video' });
+        resp.send({ message: 'All messages sent with videos', results });
 
     } catch (err) {
         console.error(err, 'error here');
