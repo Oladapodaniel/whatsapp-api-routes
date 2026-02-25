@@ -18,7 +18,7 @@ const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 const baseUrl = process.env.NODE_ENV === "production" ? process.env.BASE_URL : "http://localhost:3333";
 const phoneNotConnected = "Phone not connected, kindly connect first"
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // Delay utility
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const batchSize = 5; // Maximum concurrent requests
 const delayMs = 10000; // Delay between batches
 
