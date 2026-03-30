@@ -19,7 +19,7 @@ const upload = multer({ storage: storage });
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? process.env.BASE_URL
-    : "http://localhost:3333";
+    : "http://localhost:3001";
 const phoneNotConnected = "Phone not connected, kindly connect first";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const batchSize = 5; // Maximum concurrent requests
@@ -228,6 +228,20 @@ const sendImageMessage = async (req, formData, payload) => {
 const sendVideoMessage = async (req, formData, payload) => {
   try {
     const res = await fetch(`${baseUrl}/message/video?key=${req.query.key}`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const jsonResponse = await res.json();
+    console.log(jsonResponse, "sent");
+    return jsonResponse;
+  } catch (err) {
+    console.error(err.message);
+  }
+};
+const sendAudioMessage = async (req, formData, payload) => {
+  try {
+    const res = await fetch(`${baseUrl}/message/audio?key=${req.query.key}`, {
       method: "POST",
       body: formData,
     });
@@ -644,6 +658,102 @@ const sendVideo = async (req, resp) => {
     resp.status(500).send("Internal server error");
   }
 };
+const sendAudio = async (req, resp) => {
+  try {
+    const { id, message, fileUrl, recipients } = req.body;
+
+    console.log(id, message, fileUrl, recipients, "audio request");
+
+    const { url, fileType } = JSON.parse(fileUrl);
+    const bufferFile = await utils.getBuffer(url);
+
+    if (
+      !recipients ||
+      !Array.isArray(recipients) ||
+      recipients.length === 0 ||
+      !fileUrl
+    ) {
+      return resp.status(400).send("Invalid request body");
+    }
+
+    const limit = pLimit(batchSize);
+    const results = [];
+
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+
+      console.log(`Processing batch ${Math.ceil((i + 1) / batchSize)}...`);
+
+      const batchPromises = batch.map((item) =>
+        limit(async () => {
+          let caption = message || "";
+
+          if (caption?.includes("#name#")) {
+            caption = caption.replaceAll("#name#", item.name || "");
+          }
+
+          const chatId = item.phoneNumber.startsWith("+")
+            ? item.phoneNumber.substring(1)
+            : item.phoneNumber;
+
+          const formData = new FormData();
+          formData.append("id", chatId);
+
+          // audio normally doesn't need caption but we support it
+          if (caption) {
+            formData.append("caption", caption);
+          }
+
+          formData.append("file", bufferFile, {
+            contentType: fileType,
+            name: "file",
+            filename: "audio",
+          });
+
+          console.log("Sending audio message...");
+
+          const payload = {
+            id: chatId,
+            message,
+            messageGroupID: id,
+          };
+
+          try {
+            const response = await sendAudioMessage(req, formData, payload);
+            return { success: true, recipient: item, response };
+          } catch (error) {
+            console.error(
+              `Error sending audio to ${item.phoneNumber}:`,
+              error.message
+            );
+            return { success: false, error: error.message, recipient: item };
+          }
+        })
+      );
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      const reportPayload = batchResults.map((i) => ({
+        error: i.response?.error,
+        messageGroupID: id,
+        phone: i.recipient?.phoneNumber,
+        message,
+      }));
+
+      await sendDeliveryReport(reportPayload);
+
+      if (i + batchSize < recipients.length) {
+        await delay(delayMs);
+      }
+    }
+
+    resp.send({ message: "All audio messages sent", results });
+  } catch (err) {
+    console.error(err, "audio error");
+    resp.status(500).send("Internal server error");
+  }
+};
 
 app.post("/send/text", async (req, resp) => {
   await sendText(req);
@@ -658,6 +768,9 @@ app.post("/send/image", async (req, resp) => {
 
 app.post("/send/video", async (req, resp) => {
   await sendVideo(req, resp);
+});
+app.post("/send/audio", async (req, resp) => {
+  await sendAudio(req, resp);
 });
 
 app.delete("/instance/logout", async (req, resp) => {
@@ -719,6 +832,8 @@ app.post("/api/whatsapp/schedule", async (req, resp) => {
               await sendImage(req, resp);
             } else if (parseFile.fileType.includes("video")) {
               await sendVideo(req, resp);
+            } else if (parseFile.fileType.includes("audio")) {
+              await sendAudio(req, resp);
             } else {
               console.log("Different file type");
             }
